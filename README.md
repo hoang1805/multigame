@@ -24,4 +24,5 @@ npm install
 npm start
 ```
 ## 3. Kết quả test
-<img width="614" height="320" alt="image" src="https://github.com/user-attachments/assets/c8ba57d0-c739-42db-9898-cc3013a1a850" />
+<img width="505" height="297" alt="image" src="https://github.com/user-attachments/assets/6f6111ff-a373-4360-b5af-ff5c0253ff1d" />
+
