@@ -43,11 +43,11 @@ describe('Line98Service (with AppModule)', () => {
     expect(ended.isFinished).toBe(true);
     expect(ended.endReason).toBe(EndReasonSingle.GAME_OVER);
   });
-//     const newState = await service.createGame(1);
-//     newState.state.balls = [];
-//     await dataSource.getRepository(Line98State).save(newState);
+  //     const newState = await service.createGame(1);
+  //     newState.state.balls = [];
+  //     await dataSource.getRepository(Line98State).save(newState);
 
-//     const result = await service.isGameOver(newState.id);
-//     expect(result).toBe(true);
-//   });
+  //     const result = await service.isGameOver(newState.id);
+  //     expect(result).toBe(true);
+  //   });
 });

@@ -72,7 +72,15 @@ export class Line98Gateway implements OnGatewayConnection, OnGatewayDisconnect {
     const userId = this._getUser(socketId);
     if (userId) {
       this._removeSocket(userId);
-      this.line98Service.deleteGameCache(userId);
+
+      setTimeout(
+        () => {
+          if (!this._hasActiveSocket(userId)) {
+            this.line98Service.deleteGameCache(userId);
+          }
+        },
+        2 * 60 * 1000,
+      );
     }
   }
 
@@ -88,6 +96,7 @@ export class Line98Gateway implements OnGatewayConnection, OnGatewayDisconnect {
     client.emit('line98:connected');
 
     const matchId = this.line98Service.getGameCache(userId);
+    console.log(matchId);
     if (!matchId || body.matchId != matchId) {
       throw new WsException('Invalid match id');
     }
@@ -127,7 +136,7 @@ export class Line98Gateway implements OnGatewayConnection, OnGatewayDisconnect {
     if (!userId) {
       throw new WsException('User not found');
     }
-
+    console.log(this._getUserInfo(userId));
     const gameId = this._getUserInfo(userId)?.matchId;
     if (!gameId) {
       throw new WsException('Game not found');
@@ -190,6 +199,15 @@ export class Line98Gateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
 
     this.userToSocket.delete(userId);
+  }
+
+  private _hasActiveSocket(userId: number): boolean {
+    const socketId = this.userToSocket.get(userId)?.socketId;
+    if (socketId) {
+      return true;
+    }
+
+    return false;
   }
 
   private _setSocket(userId: number, socketId: string) {

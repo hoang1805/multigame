@@ -104,6 +104,9 @@ export class GameService {
         userId,
         type,
       },
+      order: {
+        id: 'DESC',
+      },
       skip,
       take: size,
     });

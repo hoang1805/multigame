@@ -8,6 +8,7 @@ import { CaroGateway } from './caro.gateway';
 import { AuthModule } from 'src/auth/auth.module';
 import { UserModule } from 'src/user/user.module';
 import { CaroController } from './caro.controller';
+import { CaroViewController } from './caro.view.controller';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { CaroController } from './caro.controller';
     forwardRef(() => UserModule),
   ],
   providers: [CaroService, MatchmakerService, CaroGateway],
-  controllers: [CaroController],
+  controllers: [CaroController, CaroViewController],
+  exports: [CaroService],
 })
 export class CaroModule {}

@@ -1,0 +1,187 @@
+<div class="mt-10 ml-10 mr-10">
+    <div class="mb-5 font-medium text-2xl">
+        Caro History
+    </div>
+    <div class="relative overflow-x-auto shadow-md sm:rounded-lg">
+        <table id="caro-history" class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
+            <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+                <tr>
+                    <th scope="col" class="px-6 py-3">
+                        Time
+                    </th>
+                    <th scope="col" class="px-6 py-3">
+                        Status
+                    </th>
+                    <th scope="col" class="px-6 py-3">
+                        Opponent
+                    </th>
+                </tr>
+            </thead>
+            <tbody>
+            </tbody>
+        </table>
+    </div>
+    <div class="flex flex-row justify-end items-center gap-4 mt-4">
+    <!-- Help text -->
+        <span class="text-sm text-gray-700 dark:text-gray-400">
+            Showing <span id="start-elem" class="font-semibold text-gray-900 dark:text-white">1</span> to <span id="end-elem" class="font-semibold text-gray-900 dark:text-white">10</span> of <span id="total-elem" class="font-semibold text-gray-900 dark:text-white">100</span> Entries
+        </span>
+        <div class="inline-flex xs:mt-0">
+            <!-- Buttons -->
+            <button id="prev-page" class="flex items-center justify-center px-3 h-8 text-sm font-medium text-white bg-gray-800 rounded-s hover:bg-gray-900 ">
+                <svg class="w-3.5 h-3.5 me-2 rtl:rotate-180" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 10">
+                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5H1m0 0 4 4M1 5l4-4"/>
+                </svg>
+                Prev
+            </button>
+            <button id="next-page" class="flex items-center justify-center px-3 h-8 text-sm font-medium text-white bg-gray-800 border-0 border-s border-gray-700 rounded-e hover:bg-gray-900">
+                Next
+                <svg class="w-3.5 h-3.5 ms-2 rtl:rotate-180" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 10">
+                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1 5h12m0 0L9 1m4 4L9 9"/>
+            </svg>
+            </button>
+        </div>
+    </div>
+</div>
+<script>
+    const userId = {{userId}}
+    const users = {{{json users}}}
+    let page = 1;
+    let total = 0;
+    let totalPages = 1;
+    const size = 10;
+    function clear() {
+        $('#caro-history tbody').empty();
+    }
+
+    function renderRow(caro) {
+        const time = caro.createdAt;
+        const date = new Date(time);
+
+        const state = caro.state;
+        const players = state.players;
+        const opponent = players[0].id == userId ? players[1] : players[0];
+        const name = users.find((u) => u.id == opponent.id)?.nickname ?? 'Opponent';
+
+        let status = 'Playing';
+        const winner = caro.winner;
+        if (caro.isFinished) {
+            if (!winner) {
+                status = 'Draw';
+            } else {
+                if (winner == userId) {
+                    status = 'Win';
+                } else {
+                    status = 'Lose';
+                }
+            }
+
+            
+        }
+
+        const row = $(`<tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 border-gray-200">
+            <th scope="row" class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white">
+                ${date.toLocaleString()}
+            </th>
+            <td class="px-6 py-4">
+                ${status}
+            </td>
+            <td class="px-6 py-4">
+                ${name}
+            </td>
+        </tr>`);
+
+        $('#caro-history tbody').prepend(row);
+    }
+
+    function renderList(data) {
+        showLoading();
+        clear();
+        data.forEach((caro) => {
+            renderRow(caro);
+        });
+        hideLoading();
+    }
+
+    function updateUrlParam(key, value) {
+        const url = new URL(window.location.href);
+        url.searchParams.set(key, value); // thêm hoặc cập nhật query param
+        window.history.pushState({}, '', url); // thay đổi URL mà ko reload
+    }
+
+    function renderPagination() {
+        const start = (page - 1) * size + 1;
+        const end = Math.min(start + size - 1, total);
+        $('#start-elem').text(start);
+        $('#end-elem').text(end);
+        $('#total-elem').text(total);
+        updateUrlParam('page', page);
+
+        const $prev = $('#prev-page');
+        const $next = $('#next-page');
+
+        // reset state
+        $prev.removeClass('disabled bg-gray-400! cursor-not-allowed');
+        $next.removeClass('disabled bg-gray-400! cursor-not-allowed');
+
+        if (page <= 1) {
+            $prev.addClass('disabled bg-gray-400! cursor-not-allowed');
+        }
+
+        // next
+        if (page >= totalPages) {
+            $next.addClass('disabled bg-gray-400! cursor-not-allowed');
+        }
+    }
+
+    function fetchPage(newPage) {
+        showLoading();
+        $.ajax({
+            url: `/api/caro/history?page=${newPage}&size=10`,
+            method: 'GET',
+            xhrFields: {
+                withCredentials: true,
+            },
+            contentType: 'application/json',
+            success: function(caroList) {
+                hideLoading();
+                renderList(caroList.data);
+                page = caroList.page;
+                totalPages = caroList.totalPages;
+                total = caroList.total;
+
+                renderPagination();
+            },
+            error: function(err) {
+                hideLoading();
+                showPopup("Error", err.responseJSON?.message ?? err.statusText);
+            }
+        })
+    }
+
+    $(document).ready(function() {
+        const caroList = {{{json caroList}}}
+        renderList(caroList.data);
+        page = caroList.page;
+        totalPages = caroList.totalPages;
+        total = caroList.total;
+
+        renderPagination();
+
+        $('#prev-page').on('click', (e) => {
+            if ($(e).hasClass('disabled') || page <= 1) {
+                return ;
+            }
+
+            fetchPage(page - 1);
+        });
+
+        $('#next-page').on('click', (e) => {
+            if ($(e).hasClass('disabled') || page >= totalPages) {
+                return ;
+            }
+
+            fetchPage(page + 1);
+        });
+    })
+</script>

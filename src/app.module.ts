@@ -16,9 +16,15 @@ import { Game } from './game/models/game';
 import { GameUser } from './game/models/game.user';
 import { Line98State } from './line98/models/line98.state';
 import { CaroState } from './caro/models/caro.state';
+import { join } from 'path';
+import { ServeStaticModule } from '@nestjs/serve-static';
+import { HistoryModule } from './history/history.module';
 
 @Module({
   imports: [
+    ServeStaticModule.forRoot({
+      rootPath: join(__dirname, '..', 'public'), // => /public
+    }),
     TypeOrmModule.forRoot({
       type: 'better-sqlite3',
       entities: [Session, User, Game, GameUser, Line98State, CaroState],
@@ -35,6 +41,7 @@ import { CaroState } from './caro/models/caro.state';
     GameModule,
     Line98Module,
     CaroModule,
+    HistoryModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -72,9 +72,13 @@ export class UserService {
 
     if (data.email && user.email != data.email) {
       const isExist = await this.existByEmail(data.email);
-      if (!isExist) {
+      if (isExist) {
         throw new BadRequestException('Email has already exists');
       }
+    }
+
+    if (!data.email || !data.email.trim()) {
+      data.email = user.email;
     }
 
     if (!data.nickname) {

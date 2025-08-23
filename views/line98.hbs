@@ -1,0 +1,249 @@
+
+<div class="max-w-[720px] mx-auto my-20 px-3">
+
+    <div class="flex justify-between mb-3">
+        <h3 class="text-xl font-semibold">Current game</h3>
+        <div class="flex gap-2 items-center">
+            <span class="tag-blue">Score: <b id="score">{{score}}</b></span>
+            <button id="btn-help" class="text-gray-900 bg-white border border-gray-300 focus:outline-none hover:bg-gray-100 focus:ring-4 focus:ring-gray-100 font-medium rounded-lg text-sm px-5 py-2.5">Help</button>
+            <button id="btn-giveup" class="text-red-500 bg-white border border-gray-300 focus:outline-none hover:bg-gray-100 focus:ring-4 focus:ring-gray-100 font-medium rounded-lg text-sm px-5 py-2.5">Give up</button>
+        </div>
+    </div>
+
+    <div class="flex gap-4">
+        <canvas id="game-canvas" width="450" height="450" style="border-radius:12px; background:#fff; box-shadow:0 4px 18px rgba(0,0,0,0.06); cursor:pointer;"></canvas>
+
+        <div style="min-width:140px;">
+            <div class="font-semibold mb-2">Upcomming:</div>
+            <div id="next-balls" class="flex flex-wrap gap-1">
+                {{#each state.nextBalls}}
+                    <span class="ball" style="background-color: {{lookup ../COLORS this}}"></span>
+                {{/each}}
+            </div>
+        </div>
+    </div>
+</div>
+<script src="/js/cookie.js"></script>
+<script>
+    const matchId = {{matchId}};
+    const COLORS = {
+        1: "#e74c3c",
+        2: "#3498db",
+        3: "#2ecc71",
+        4: "#f1c40f",
+        5: "#9b59b6",
+    };
+    let state = {{{json state}}};
+    let score = {{score}}
+    let config = {{{json config}}};
+    const sizeConfig = config.size ?? 9;
+    let selected = null;
+    let hint = null;
+    let awaiting = false;
+    let helpRemain = state.helpRemaining ?? 0;
+    state.board = parseBoard(state.balls, sizeConfig);
+    renderNextBall(state.nextBalls);
+
+    const canvas = document.getElementById("game-canvas");
+    const ctx = canvas.getContext("2d");
+
+    function renderNextBall(balls) {
+        const $nextBalls = $("#next-balls");
+        $nextBalls.empty();
+        balls.forEach(color => {
+            const $ball = $('<span>')
+                .addClass('ball w-[20px] h-[20px] rounded-[50%]')
+                .attr('data-color', color)
+                .css('background-color', COLORS[color] || '#ccc');
+            $nextBalls.append($ball);
+        });
+    }
+
+    function drawBoard() {
+        if (!ctx || !state) return;
+        const size = 450;
+        const padding = 8;
+        const grid = sizeConfig;
+        const cell = Math.floor((size - padding * 2)/grid);
+        const start = padding;
+
+        ctx.clearRect(0,0,size,size);
+
+        // background
+        ctx.fillStyle = "#fafafa";
+        ctx.fillRect(0,0,size,size);
+
+        // grid lines
+        ctx.strokeStyle = "#ddd";
+        for(let i = 0; i <= grid; i++){
+            ctx.beginPath();
+            ctx.moveTo(padding + i * cell, padding);
+            ctx.lineTo(padding + i * cell, padding + cell * grid);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(padding, padding + i * cell);
+            ctx.lineTo(padding + cell * grid, padding + i * cell);
+            ctx.stroke();
+        }
+
+        // draw balls
+        state.board.forEach((row,r) => {
+            row.forEach((val,c) => {
+                if(val > 0) {
+                    const scale = (selected && selected[0] === r && selected[1] === c) ? 1.2 : 1;
+
+                    const cx = padding + c * cell + cell / 2;
+                    const cy = padding + r * cell + cell / 2;
+                    const radius = cell * 0.35;
+                    // shadow
+                    ctx.beginPath();
+                    ctx.arc(cx, cy + 1.5, radius * scale, 0, Math.PI * 2);
+                    ctx.fillStyle = "rgba(0,0,0,0.15)";
+                    ctx.fill();
+
+                    // main
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, radius * scale, 0, Math.PI * 2);
+                    ctx.fillStyle = COLORS[val] || "#555";
+                    ctx.fill();
+                }
+            });
+        });
+
+        // hightlight hint
+        if (hint) {
+            const toRect = (p) => ({
+                x: start + p[1] * cell + 1,
+                y: start + p[0] * cell + 1,
+                w: cell - 2,
+                h: cell - 2,
+            });
+
+            // from/to highlight
+            const r1 = toRect(hint.from);
+            const r2 = toRect(hint.to);
+            ctx.save();
+            ctx.strokeStyle = "#e67e22";
+            ctx.lineWidth = 2;
+            ctx.strokeRect(r1.x, r1.y, r1.w, r1.h);
+            ctx.strokeStyle = "#27ae60";
+            ctx.strokeRect(r2.x, r2.y, r2.w, r2.h);
+            ctx.restore();
+        }
+    }
+
+    canvas.addEventListener("click", e=>{
+        if(!state || awaiting) return;
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top; 
+        const size = 450;
+        const padding = 8;
+        const grid = state.board.length;
+        const cell = Math.floor((size - padding * 2)/grid);
+
+        const col = Math.floor((x - padding)/cell);
+        const row = Math.floor((y - padding)/cell);
+
+        if(row < 0 || row >= grid || col < 0 || col >= grid) return;
+
+        const val = state.board[row][col];
+        if(val > 0){
+            selected = selected && selected[0]===row && selected[1]===col ? null : [row,col];
+            hint = null;
+            drawBoard();
+            return;
+        }
+
+        if(selected){
+            awaiting = true;
+            socket?.emit("move", {matchId: matchId, from:{x:selected[0],y:selected[1]}, to:{x:row,y:col} });
+            hint=null;
+            awaiting=false;
+            selected = null;
+        }
+    });
+
+    // --- buttons
+    $("#btn-help").on("click", () => {
+        if(!state || awaiting || helpRemain <= 0) return;
+        socket?.emit("help");
+    });
+
+    $("#btn-giveup").on("click", ()=>{
+        if(confirm("Bạn chắc chắn bỏ cuộc?")) socket?.emit("cancel");
+    });
+
+    // --- socket?.io
+    
+
+    let socket; 
+    $(document).ready(function() {
+        const token = getAccessToken();
+        if (!token) {
+            showPopup("Error", "Token expired. Please reload the page!!!", () => winload.location.reload());
+            return ;
+        }
+        socket = io("/line98", { auth: { token: token } }); // tùy backend
+        socket?.emit("join", {matchId});
+
+        socket?.on("line98:move", data => {
+            const move = data.move;
+            if (move.moveFrom && move.moveTo) {
+                const {x: fx, y: fy} = move.moveFrom;
+                const {x: tx, y: ty} = move.moveTo;
+                state.board[tx][ty] = state.board[fx][fy];
+                state.board[fx][fy] = 0;
+            }
+
+            if (move.nextBalls) {
+                state.nextBalls = move.nextBalls;
+                renderNextBall(state.nextBalls);
+            }
+
+            move.removed?.forEach((e) => {
+                state.board[e.x][e.y] = 0;
+            })
+
+            move.added?.forEach((e) => {
+                state.board[e.x][e.y] = e.color;
+            })
+            
+            score += move.points ?? 0;
+            $('#score').text(score);
+            drawBoard();
+        });
+
+        socket?.on("line98:help", data => {
+            console.log(data);
+            helpRemain--;
+            hint = {
+                from: [data.from.x, data.from.y],
+                to: [data.to.x, data.to.y]
+            }
+            drawBoard();
+        });
+
+        socket?.on("error", data => {
+            showPopup('Error', data.message ?? 'Error', () => window.location.reload());
+        });
+
+        socket?.on("line98:game.over", () => {
+            showPopup('Game over!', 'You lose!!!', () => window.location.href = '/home');
+        });
+    })
+
+    drawBoard();
+
+    function parseBoard(balls, size) {
+        const board = Array.from({ length: size }, () => Array(size).fill(0));
+        if (Array.isArray(balls)) {
+            balls.forEach(({ x, y, color }) => {
+                board[x][y] = color;
+            });
+        }
+        
+        return board;
+    }
+</script>

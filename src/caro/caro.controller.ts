@@ -8,15 +8,18 @@ import {
   Req,
   Res,
   UnauthorizedException,
+  UseFilters,
   UseGuards,
 } from '@nestjs/common';
 import { CaroService } from './services/caro.service';
 import * as appRequest from 'src/common/interfaces/app.request';
 import express from 'express';
-import { AuthGuard } from 'src/common/guards/auth.guard';
+import { ApiAuthGuard } from 'src/common/guards/api.auth.guard';
+import { HttpExceptionFilter } from 'src/common/filters/exception.filter';
 
 @Controller('api/caro')
-@UseGuards(AuthGuard)
+@UseGuards(ApiAuthGuard)
+@UseFilters(HttpExceptionFilter)
 export class CaroController {
   constructor(private readonly caroService: CaroService) {}
   @Get('history')

@@ -1,0 +1,111 @@
+
+<div class="h-full w-full h-screen">
+    <div class="w-full h-full flex pt-10 flex-col items-center relative">
+        <h1 class="font-medium text-2xl max-w-md w-full mb-5">User information</h1>
+        <div class="max-w-md w-full flex flex-col">
+            <div>
+                <div class="font-medium">Username:</div> <span>{{username}}</span>
+            </div>
+            <div>
+                <div class="font-medium">Email:</div> <span>{{email}}</span>
+            </div>
+            <div>
+                <div class="font-medium">Nickname:</div> <span>{{nickname}}</span>
+            </div>
+        </div>
+        <div class="absolute top-0 right-65 mt-[52px]">
+            <button type="button" class="edit-button text-gray-900 bg-white border border-gray-300 focus:outline-none hover:bg-gray-100 focus:ring-4 focus:ring-gray-100 font-medium rounded-lg text-sm px-5 py-2.5 me-2 mb-2">Edit</button>
+        </div>
+    </div>
+</div>
+
+<div id="edit-user-modal" tabindex="-1" class="hidden flex overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full">
+    <div class="relative p-4 w-full max-w-md max-h-full">
+        <!-- Modal content -->
+        <div class="relative bg-white rounded-lg shadow-sm dark:bg-gray-700">
+            <!-- Modal header -->
+            <div class="flex items-center justify-between p-4 md:p-5 border-b rounded-t dark:border-gray-600 border-gray-200">
+                <h3 class="text-xl font-semibold text-gray-900 dark:text-white">
+                    Edit user information
+                </h3>
+                <button type="button" class="btn-close end-2.5 text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center dark:hover:bg-gray-600 dark:hover:text-white" data-modal-hide="authentication-modal">
+                    <svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
+                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
+                    </svg>
+                    <span class="sr-only">Close modal</span>
+                </button>
+            </div>
+            <!-- Modal body -->
+            <div class="p-4 md:p-5">
+                <form class="space-y-4" action="#">
+                    {{> inputText name="email" label="Email" type="email" value=email }}
+                    {{> inputText name="nickname" label="Display name" value=nickname }}
+                    <button type="button" class="btn-submit w-full text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">Save</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+    const defaultEmail = "{{email}}"
+    const defaultNickname = "{{nickname}}"
+    let open = false;
+    $(document).ready(function() {
+        function showForm() {
+            $('#edit-user-modal').removeClass('hidden');
+            $('#global-overlay').removeClass('hidden');
+            open = true;
+        }
+
+        function hideForm() {
+            $('#edit-user-modal').addClass('hidden');
+            $('#global-overlay').addClass('hidden');
+            $('#edit-user-modal #email').val(defaultEmail);
+            $('#edit-user-modal #nickname').val(defaultNickname);
+            open = false;
+        }
+
+        function getData() {
+            const email = $('#edit-user-modal #email').val();
+            const nickname = $('#edit-user-modal #nickname').val();
+
+            return {email, nickname};
+        }
+
+        $('.edit-button').on('click', () => {
+            showForm();
+        });
+
+        $('#edit-user-modal .btn-close').on('click', () => {
+            hideForm();
+        });
+
+        $('#edit-user-modal .btn-submit').on('click', () => {
+            console.log(open);
+            if (!open) {
+                return ;
+            }
+            const data = getData();
+            hideForm();
+
+            showLoading();
+            $.ajax({
+                url: '/api/user',
+                method: 'PUT',
+                contentType: 'application/json',
+                data: JSON.stringify(data),
+                xhrFields: {
+                    withCredentials: true,
+                },
+                success: function(data) {
+                    hideLoading();
+                    showPopup("Info", 'Edit user successfully', () => window.location.reload());
+                },
+                error: function(err) {
+                    hideLoading();
+                    showPopup("Error", err.responseJSON?.message ?? err.statusText);
+                }
+            })
+        })
+    })
+</script>

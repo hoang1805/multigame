@@ -1,6 +1,0 @@
-[submodule "multigame-backend"]
-	path = multigame-backend
-	url = https://github.com/hoang1805/multigame-backend.git
-[submodule "multigame-frontend"]
-	path = multigame-frontend
-	url = https://github.com/hoang1805/multigame-frontend.git

@@ -11,15 +11,18 @@ import {
   Req,
   Res,
   UnauthorizedException,
+  UseFilters,
   UseGuards,
 } from '@nestjs/common';
 import express from 'express';
-import { AuthGuard } from 'src/common/guards/auth.guard';
+import { ApiAuthGuard } from 'src/common/guards/api.auth.guard';
 import { Line98Service } from './line98.service';
 import * as appRequest from 'src/common/interfaces/app.request';
+import { HttpExceptionFilter } from 'src/common/filters/exception.filter';
 
 @Controller('api/line98')
-@UseGuards(AuthGuard)
+@UseGuards(ApiAuthGuard)
+@UseFilters(HttpExceptionFilter)
 export class Line98Controller {
   constructor(private readonly line98Service: Line98Service) {}
   @Get('config')

@@ -10,6 +10,7 @@ import {
   Req,
   Res,
   UnauthorizedException,
+  UseFilters,
   UseGuards,
 } from '@nestjs/common';
 import { AuthService } from './services/auth.service';
@@ -19,9 +20,11 @@ import express, { response } from 'express';
 import { LoginDto } from './dtos/login.dto';
 import { HashUtil } from 'src/common/utils/hash.util';
 import * as appRequest from 'src/common/interfaces/app.request';
-import { AuthGuard } from 'src/common/guards/auth.guard';
+import { ApiAuthGuard } from 'src/common/guards/api.auth.guard';
+import { HttpExceptionFilter } from 'src/common/filters/exception.filter';
 
 @Controller('api/auth')
+@UseFilters(HttpExceptionFilter)
 export class AuthController {
   constructor(
     private readonly authService: AuthService,
@@ -67,8 +70,20 @@ export class AuthController {
     }
 
     const clientToken = await this.authService.login(user.id, user.username);
+    response.cookie('accessToken', clientToken.accessToken, {
+      httpOnly: false,
+      maxAge:
+        parseDuration(process.env.ACCESS_TOKEN_EXPIRE ?? '30m') -
+        parseDuration('5m'),
+    });
+    response.cookie('refreshToken', clientToken.refreshToken, {
+      httpOnly: false,
+      maxAge:
+        parseDuration(process.env.REFRESH_TOKEN_EXPIRE ?? '30d') -
+        parseDuration('5m'),
+    });
 
-    response.status(HttpStatus.OK).json(clientToken);
+    response.status(HttpStatus.OK).json({ message: 'successfull' });
   }
 
   @Get('refresh')
@@ -77,10 +92,16 @@ export class AuthController {
     @Res() response: express.Response,
   ) {
     const accessToken = await this.authService.refresh(token);
-    response.status(HttpStatus.OK).json({ accessToken });
+    response.cookie('accessToken', accessToken, {
+      httpOnly: false,
+      maxAge:
+        parseDuration(process.env.ACCESS_TOKEN_EXPIRE ?? '30m') -
+        parseDuration('5m'),
+    });
+    response.status(HttpStatus.OK);
   }
 
-  @UseGuards(AuthGuard)
+  @UseGuards(ApiAuthGuard)
   @Post('logout')
   async logout(
     @Req() request: appRequest.AppRequest,
@@ -93,6 +114,29 @@ export class AuthController {
     }
 
     await this.authService.revokeSession(context.sid);
+    response.clearCookie('accessToken');
+    response.clearCookie('refreshToken');
     response.status(HttpStatus.OK).json({ message: 'Logout successfully !!!' });
+  }
+}
+
+export function parseDuration(duration: string): number {
+  const match = duration.match(/^(\d+)([smhd])$/);
+  if (!match) throw new Error('Invalid duration format');
+
+  const value = parseInt(match[1], 10);
+  const unit = match[2];
+
+  switch (unit) {
+    case 's':
+      return value * 1000;
+    case 'm':
+      return value * 60 * 1000;
+    case 'h':
+      return value * 60 * 60 * 1000;
+    case 'd':
+      return value * 24 * 60 * 60 * 1000;
+    default:
+      throw new Error('Invalid duration unit');
   }
 }

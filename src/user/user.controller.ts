@@ -10,18 +10,21 @@ import {
   Req,
   Res,
   UnauthorizedException,
+  UseFilters,
   UseGuards,
 } from '@nestjs/common';
 import express from 'express';
-import { AuthGuard } from 'src/common/guards/auth.guard';
+import { ApiAuthGuard } from 'src/common/guards/api.auth.guard';
 import { UserService } from './user.service';
 import { UserResponseDto } from './dtos/user.response.dto';
 import * as appRequest from 'src/common/interfaces/app.request';
 import { UpdateUserDto } from './dtos/update.user.dto';
 import { ChangePasswordDto } from './dtos/change.password.dto';
+import { HttpExceptionFilter } from 'src/common/filters/exception.filter';
 
 @Controller('api/user')
-@UseGuards(AuthGuard)
+@UseGuards(ApiAuthGuard)
+@UseFilters(HttpExceptionFilter)
 export class UserController {
   constructor(private readonly userService: UserService) {}
 

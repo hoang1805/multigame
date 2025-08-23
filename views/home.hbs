@@ -1,0 +1,133 @@
+<div class="mt-10 mx-10">
+    <div class="text-2xl font-medium">
+        Welcome back, <span>{{nickname}}</span> !!! 👋
+    </div>
+    <div class="text-gray-600 mt-2">See available games</div>
+    <hr class="my-4" />
+    <div class="text-xl font-medium mb-4">
+        Available games
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-10">
+        <div id="play-caro" class="cursor-pointer shadow-md rounded-xl transition-transform transform hover:scale-[1.02] bg-[#c3ddff] p-4">
+            <h3 class="text-lg font-medium">Caro</h3>
+            <p>Classic 15x15 board game.</p>
+            <p>Play with friends.</p>
+        </div>
+        <div id="play-line98" class="cursor-pointer shadow-md rounded-xl transition-transform transform hover:scale-[1.02] bg-[#ddffd9] p-4">
+            <h3 class="text-lg font-medium">Line98</h3>
+            <p>Arrange balls of the same color.</p>
+            <p>Try to get the highest score!</p>
+        </div>
+    </div>
+</div>
+
+<div id="find-match-modal" data-modal-backdrop="static" tabindex="-1"  class="hidden flex overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full ">
+    <div class="relative p-4 w-full max-w-2xl max-h-full">
+        <!-- Modal content -->
+        <div class="relative bg-white rounded-lg shadow-sm dark:bg-gray-700">
+            <!-- Modal header -->
+            <div class="flex items-center justify-between p-4 md:p-5 border-b rounded-t dark:border-gray-600 border-gray-200">
+                <h3 class="text-xl font-semibold text-gray-900 dark:text-white">
+                    🔍 Finding match...
+                </h3>
+                <button onclick="onCancelCaro()" type="button" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center dark:hover:bg-gray-600 dark:hover:text-white" data-modal-hide="static-modal">
+                    <svg class="w-3 h-3"  xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
+                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
+                    </svg>
+                    <span class="sr-only">Close modal</span>
+                </button>
+            </div>
+            <!-- Modal body -->
+            <div class="p-4 md:p-5 space-y-4">
+                <p>Time: <b id="fm-modal-seconds">0</b>s</p>
+            </div>
+            <!-- Modal footer -->
+            <div class="flex items-center justify-end-safe p-4 md:p-5 border-t border-gray-200 rounded-b dark:border-gray-600">
+                <button onclick="onCancelCaro()" type="button" class="py-2.5 px-5 ms-3 text-sm font-medium text-gray-900 focus:outline-none bg-white rounded-lg border border-gray-200 hover:bg-gray-100 hover:text-blue-700 focus:z-10 focus:ring-4 focus:ring-gray-100 dark:focus:ring-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600 dark:hover:text-white dark:hover:bg-gray-700">Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="fill" class="hidden fixed bg-gray-900/50 z-40 inset-0"></div>
+
+<script>
+    let interval;
+
+    function openModal() {
+        const $modal = $('#find-match-modal');
+        const $secondsEl = $('#fm-modal-seconds');
+        $modal.removeClass('hidden');
+        $('#fill').removeClass('hidden');
+        let seconds = 0;
+        $secondsEl.text(seconds);
+
+        interval = setInterval(() => {
+            seconds++;
+            $secondsEl.text(seconds);
+        }, 1000);
+    }
+
+    function closeModal() {
+        const $modal = $('#find-match-modal');
+        const $secondsEl = $('#fm-modal-seconds');
+        $modal.addClass('hidden');
+        $('#fill').addClass('hidden');
+        clearInterval(interval);
+        $secondsEl.text(0);
+    }
+
+    // Init WebSocket
+
+    const accessToken = window.cookieStore
+    let socket = null;
+
+    // Caro
+    $('#play-caro').on('click', () => {
+        const token = getAccessToken();
+        if (!token) {
+            showPopup("Error", "Token expired. Please reload the page!!!");
+            return ;
+        }
+        socket = io("/caro", { auth: { token: getAccessToken() } });
+        
+        // Hiện modal
+        openModal();
+
+        socket.on('caro:found', (data) => {
+            window.location.href = `/caro/${data.matchId}`;
+        });
+
+        socket.on('caro:continue', (data) => {
+            window.location.href = `/caro/${data.matchId}`;
+        });
+    });
+
+    // Hủy tìm Caro
+    function onCancelCaro() {
+        closeModal();
+        socket.disconnect();
+    }
+
+    // Line98
+    $('#play-line98').on('click', async () => {
+        showLoading();
+        $.ajax({
+            method: 'POST',
+            url: '/api/line98/play',
+            xhrFields: {
+                withCredentials: true,
+            },
+            contentType: 'application/json',
+            success: function(data) {
+                hideLoading();
+                window.location.href = `/line98/${data.id}`;
+            },
+            error: function(err) {
+                hideLoading();
+                showPopup("Error", err.responseJSON?.message ?? err.statusText);
+            }
+        });
+    });
+</script>

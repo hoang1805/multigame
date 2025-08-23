@@ -346,7 +346,7 @@ export class CaroService {
     return this.gameService.isPlaying(userId, GameType.CARO);
   }
 
-   /**
+  /**
    * Cache the Caro match
    * @param caro CaroState object
    * @returns void
@@ -355,7 +355,7 @@ export class CaroService {
     this.matchCache.set(caro.id, caro);
   }
 
-   /**
+  /**
    * Get Caro match by ID
    * @param id Caro game ID
    * @returns CaroState

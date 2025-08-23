@@ -4,11 +4,12 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
+import { JwtService, TokenExpiredError } from '@nestjs/jwt';
 import { JwtTokenPayload } from 'src/auth/interfaces/jwt.token.payload';
 import { AuthService } from 'src/auth/services/auth.service';
 import { AppRequest } from '../interfaces/app.request';
-import { Request } from 'express';
+import { Request, Response } from 'express';
+import { parseDuration } from 'src/auth/auth.controller';
 
 @Injectable()
 export class AuthGuard implements CanActivate {
@@ -18,42 +19,79 @@ export class AuthGuard implements CanActivate {
   ) {}
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<AppRequest>();
-    const accessToken = this._getTokenFromHeader(request);
-
+    const response = context.switchToHttp().getResponse<Response>();
+    let refreshToken: string = '';
     let payload: JwtTokenPayload | null = null;
+
     try {
+      const accessToken = this._getTokenFromCookies(request, 'accessToken');
+      refreshToken = this._getTokenFromCookies(request, 'refreshToken');
+
+      if (!refreshToken) {
+        response.redirect('/login');
+        return false;
+      }
+
+      if (!accessToken) {
+        throw new TokenExpiredError('', new Date());
+      }
+
       payload = await this.jwtService.verifyAsync<JwtTokenPayload>(
         accessToken,
-        {
-          secret: process.env.ACCESS_TOKEN_SECRET,
-        },
+        { secret: process.env.ACCESS_TOKEN_SECRET },
       );
-    } catch (err) {
+    } catch (err: any) {
       if (err.name === 'TokenExpiredError') {
-        throw new UnauthorizedException('token_expired');
+        const accessToken = await this._refreshToken(refreshToken);
+
+        if (!accessToken) {
+          response.redirect('/login');
+          return false; // ⚠️ return false ngay sau redirect
+        }
+
+        // Chỉ gửi cookie nếu chưa redirect
+        response.cookie('accessToken', accessToken, {
+          httpOnly: false,
+          maxAge:
+            parseDuration(process.env.ACCESS_TOKEN_EXPIRE ?? '30m') -
+            parseDuration('5m'),
+        });
+
+        // Verify token mới
+        payload = await this.jwtService.verifyAsync<JwtTokenPayload>(
+          accessToken,
+          { secret: process.env.ACCESS_TOKEN_SECRET },
+        );
+      } else {
+        response.redirect('/login');
+        return false;
       }
     }
 
     if (!payload) {
-      throw new UnauthorizedException();
+      response.redirect('/login');
+      return false;
     }
-
-    // const session = await this.authService.getSession(payload.sid, payload.sub);
-    // if (!session) {
-    //   throw new UnauthorizedException();
-    // }
 
     request.__context = payload;
     return true;
   }
 
-  private _getTokenFromHeader(request: Request, prefix: string = 'Bearer ') {
-    const auth = request.headers['authorization'];
-
-    if (!auth || !auth.startsWith(prefix)) {
-      throw new UnauthorizedException();
+  private _getTokenFromCookies(request: Request, key: string) {
+    const auth = request.cookies[key];
+    if (!auth) {
+      return '';
     }
 
-    return auth.substring(prefix.length);
+    return auth as string;
+  }
+
+  private async _refreshToken(refreshToken: string): Promise<string | null> {
+    try {
+      const token = await this.authService.refresh(refreshToken);
+      return token;
+    } catch (_) {
+      return null;
+    }
   }
 }

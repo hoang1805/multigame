@@ -1,0 +1,204 @@
+<div class="app-content mx-auto mt-3.5 flex flex-col" style="max-width: 500px;">
+    <div class="players flex justify-between mb-4 gap-8">
+        <div id="player-left" class="flex-1 bg-white">
+            <div class="max-w-sm p-6  border border-gray-200 flex flex-col">
+                <div id="player-left-name" class="text-lg font-medium">{{playerLeftName}}</div>
+                <div class="mb-3 font-normal text-gray-700 text-base">
+                    Time left: <span id="player-left-time">0</span>
+                </div>
+            </div>
+        </div>
+        <div id="player-right" class="flex-1 bg-white">
+            <div class="max-w-sm p-6 border border-gray-200 flex flex-col items-end-safe">
+                <div id="player-right-name" class="text-lg font-medium">{{playerRightName}}</div>
+                <div class="mb-3 font-normal text-gray-700 text-base">
+                    Time left: <span id="player-right-time">0</span>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    <canvas id="caro-board" width="{{multiply size 30}}" height="{{multiply size 30}}" style="border:1px solid #ddd; cursor:pointer;"></canvas>
+</div>
+
+<script src="/js/cookie.js"></script>
+<script>
+    const matchId = {{matchId}}
+    const size = {{size}}
+    let state = {{{json state}}}
+    console.log(state);
+    const cellSize = 30;
+    let currentTurn = '';
+    let playerSymbol = '';
+    let timeRemain = 0;
+    let timeLimit = 0;
+    let interval;
+    $(document).ready(function() {
+        const canvas = document.getElementById("caro-board");
+        const ctx = canvas.getContext("2d");
+
+        function drawBoard() {
+            const board = state.board;
+            ctx.clearRect(0,0, canvas.width, canvas.height);
+
+            ctx.fillStyle = "#fafafa";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Grid
+            ctx.strokeStyle = "#ddd";
+            for(let i = 0; i <= size; i++){
+                ctx.beginPath();
+                ctx.moveTo(0, i * cellSize);
+                ctx.lineTo(size * cellSize, i * cellSize);
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(i * cellSize, 0);
+                ctx.lineTo(i * cellSize, size * cellSize);
+                ctx.stroke();
+            }
+
+            // Draw X/O
+            ctx.lineWidth = 2;
+            for(let i = 0; i < size; i++){
+                for(let j = 0; j < size; j++){
+                    const val = board[i][j];
+                    if(val === "X"){
+                        ctx.strokeStyle = "red";
+                        ctx.beginPath();
+                        ctx.moveTo(j * cellSize + 5, i * cellSize + 5);
+                        ctx.lineTo((j + 1) * cellSize - 5, (i + 1) * cellSize - 5);
+                        ctx.moveTo((j + 1) * cellSize - 5, i * cellSize + 5);
+                        ctx.lineTo(j * cellSize + 5, (i + 1) * cellSize - 5);
+                        ctx.stroke();
+                    } else if(val === "O"){
+                        ctx.strokeStyle = "blue";
+                        ctx.beginPath();
+                        ctx.arc(j * cellSize + cellSize / 2, i * cellSize + cellSize / 2, cellSize / 2 - 5, 0, Math.PI * 2);
+                        ctx.stroke();
+                    }
+                }
+            }
+        }
+        drawBoard();
+
+        const token = getAccessToken();
+        if (!token) {
+            showPopup("Error", "Token expired. Please reload the page!!!", () => winload.location.reload());
+            return ;
+        }
+
+        const socket = io("/caro", { auth: { token: token } });
+        socket?.emit("join", {matchId});
+
+        canvas.addEventListener('click', function(e) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+
+            const x = (e.clientX - rect.left) * scaleX;
+            const y = (e.clientY - rect.top) * scaleY;
+
+            const i = Math.floor(y / cellSize);
+            const j = Math.floor(x / cellSize);
+
+            if (i < 0 || j < 0) return ;
+
+            if (currentTurn != playerSymbol) {
+                return ;
+            }
+
+            socket.emit('move', {matchId, row:i, col:j});
+        });
+
+        socket.on("caro:state", (data) => {
+            if (matchId != data.matchId) {
+                window.location.href = '/home';
+                return ;
+            }
+
+            state.board = data.board;
+            currentTurn = data.turn;
+            playerSymbol = data.userSymbol;
+            timeRemain = data.timeRemain;
+            if (data.time) {
+                timeLimit = data.time;
+            }
+
+            drawBoard();
+            setTimer();
+        });
+
+        socket.on('caro:win', function(data){
+            if(data.matchId != matchId) return;
+            state.board = data.board;
+            drawBoard();
+            showPopup('Game Result', "You win!", () => window.location.href = '/home');
+            clearInterval(interval);
+        });
+
+        socket.on('caro:lose', function(data){
+            if(data.matchId != matchId) return;
+            state.board = data.board;
+            drawBoard();
+            showPopup('Game Result', "You lose!", () => window.location.href = '/home');
+            clearInterval(interval);
+        });
+
+        socket.on('caro:draw', function(data){
+            if(data.matchId != matchId) return;
+            state.board = data.board;
+            drawBoard();
+            showPopup('Game Result', "Drawww!", () => window.location.href = '/home');
+            clearInterval(interval);
+        });
+
+        function updateTimersDisplay(){
+            const display = (timeRemain / 1000).toFixed(1);
+            const template = `${display}s`;
+            const fadeClass = 'bg-gray-400/20!';
+            if (currentTurn == 'X') {
+                $('#player-left-time').text(template);
+                $('#player-right-time').text('0s');
+
+                if (!$('#player-left').hasClass(fadeClass)) {
+                    $('#player-left').addClass(fadeClass);
+                }
+
+                if ($('#player-right').hasClass(fadeClass)) {
+                    $('#player-right').removeClass(fadeClass);
+                }
+            } else {
+                $('#player-left-time').text('0s');
+                $('#player-right-time').text(template);
+
+                if (!$('#player-right').hasClass(fadeClass)) {
+                    $('#player-right').addClass(fadeClass);
+                }
+
+                if ($('#player-left').hasClass(fadeClass)) {
+                    $('#player-left').removeClass(fadeClass);
+                }
+            }
+        }
+        
+        function setTimer() {
+            const endTime = Date.now() + timeRemain; // tính thời điểm kết thúc thực tế
+
+            if (interval) {
+                clearInterval(interval);
+            }
+
+            interval = setInterval(() => {
+                const now = Date.now();
+                timeRemain = Math.max(0, endTime - now); // dựa vào thời gian thực
+                updateTimersDisplay();
+
+                if (timeRemain <= 0) {
+                    clearInterval(interval);
+                }
+            }, 100);
+}
+    });
+</script>
