@@ -41,6 +41,7 @@ export class Line98ViewController {
 
     return response.render('line98', {
       layout: 'layouts/main',
+      title: 'Play line98',
       config,
       state,
       score,

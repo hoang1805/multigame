@@ -14,6 +14,7 @@ import { AuthGuard } from 'src/common/guards/auth.guard';
 import express from 'express';
 import * as appRequest from 'src/common/interfaces/app.request';
 import { UserService } from 'src/user/user.service';
+import { title } from 'process';
 
 @UseGuards(AuthGuard)
 @Controller('caro')
@@ -52,6 +53,7 @@ export class CaroViewController {
 
       return response.render('caro', {
         layout: 'layouts/main',
+        title: 'Play caro',
         matchId: id,
         state,
         size,

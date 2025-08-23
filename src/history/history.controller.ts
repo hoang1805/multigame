@@ -38,6 +38,7 @@ export class HistoryController {
 
     return response.render('history/caro', {
       layout: 'layouts/main',
+      title: 'Caro History',
       users,
       userId,
       caroList: caros,
@@ -67,8 +68,14 @@ export class HistoryController {
 
     return response.render('history/line98', {
       layout: 'layouts/main',
+      title: 'Line98 History',
       userId,
       line98List: line98s,
     });
+  }
+
+  @Get()
+  redirect(@Res() response: express.Response) {
+    response.redirect('/history/caro');
   }
 }

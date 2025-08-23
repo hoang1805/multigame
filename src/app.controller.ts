@@ -1,14 +1,4 @@
-import {
-  Controller,
-  Get,
-  Redirect,
-  Render,
-  Req,
-  Res,
-  UseGuards,
-} from '@nestjs/common';
-import { AppService } from './app.service';
-import express from 'express';
+import { Controller, Get, Redirect, Req, Res, UseGuards } from '@nestjs/common';
 import { AuthGuard } from './common/guards/auth.guard';
 import type { AppRequest } from './common/interfaces/app.request';
 import type { Response } from 'express';
@@ -43,6 +33,7 @@ export class AppController {
 
     return response.render('home', {
       layout: 'layouts/main',
+      title: 'Home',
       nickname: user.nickname,
     });
   }

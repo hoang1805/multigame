@@ -1,23 +1,8 @@
-import {
-  Body,
-  Controller,
-  Get,
-  HttpStatus,
-  NotFoundException,
-  Param,
-  Post,
-  Put,
-  Req,
-  Res,
-  UnauthorizedException,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, Req, Res, UseGuards } from '@nestjs/common';
 import express from 'express';
 import { UserService } from './user.service';
 import { UserResponseDto } from './dtos/user.response.dto';
 import * as appRequest from 'src/common/interfaces/app.request';
-import { UpdateUserDto } from './dtos/update.user.dto';
-import { ChangePasswordDto } from './dtos/change.password.dto';
 import { AuthGuard } from 'src/common/guards/auth.guard';
 
 @Controller('user')
@@ -54,6 +39,7 @@ export class UserViewController {
 
     return response.render('me', {
       layout: 'layouts/main',
+      title: 'User information',
       ...exportData,
     });
   }
